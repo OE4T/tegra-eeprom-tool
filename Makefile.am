@@ -1,0 +1,19 @@
+# Tegra EEPROM tool makefile
+#
+# Copyright (c) 2019 Matthew Madison
+#
+
+AUTOMAKE_OPTIONS = subdir-objects foreign
+ACLOCAL_AMFLAGS = -I m4
+SUBDIRS =
+DIST_SUBDIRS =
+
+prefix = /usr
+exec_prefix = /usr
+bindir = $(exec_prefix)/bin
+
+bin_PROGRAMS = tegra-eeprom-tool
+tegra_eeprom_tool_SOURCES = tegra-eeprom-tool.c eeprom.c
+tegra_eeprom_tool_CPPFLAGS = -D_DEFAULT_SOURCE -D_BSD_SOURCE
+tegra_eeprom_tool_CFLAGS = $(LIBEDIT_CFLAGS)
+tegra_eeprom_tool_LDADD = $(LIBEDIT_LIBS)
