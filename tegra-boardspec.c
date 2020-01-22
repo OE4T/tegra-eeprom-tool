@@ -196,16 +196,15 @@ main (int argc, char * const argv[])
 	 *   bbbb = boardid
 	 *   ssss = boardsku
 	 *   fff  = fab
-         *   RRR  = boardrev
+	 *   RRR  = boardrev
+	 * Have seen some EEPROMs with non-existent
+	 * or shorter boardrevs, so make sure the blank
+	 * is present and at least one char is printable.
+	 *
 	 */
-	if (eeprom.partnumber[18] == ' ' &&
-	    isprint(eeprom.partnumber[19]) &&
-	    isprint(eeprom.partnumber[20]) &&
-	    isprint(eeprom.partnumber[21])) {
+	memset(boardrev, 0, sizeof(boardrev));
+	if (eeprom.partnumber[18] == ' ' && isprint(eeprom.partnumber[19]))
 		memcpy(boardrev, &eeprom.partnumber[19], 3);
-		boardrev[3] = '\0';
-	} else
-		boardrev[0] = '\0';
 	/*
 	 * XXX punt on the chip revision for now,
 	 * should be 0 for non-T194 parts, 2 for T194.
