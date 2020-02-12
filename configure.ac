@@ -4,10 +4,10 @@ dnl
 dnl Copyright (c) 2019-2020, Matthew Madison
 dnl
 
-AC_INIT([tegra-eeprom-tool], [1.1.0])
+AC_INIT([tegra-eeprom-tool], [1.1.1])
 AC_DEFINE([EEPROMTOOL_VERSION_MAJOR], [1], [Major version])
 AC_DEFINE([EEPROMTOOL_VERSION_MINOR], [1], [Minor version])
-AC_DEFINE([EEPROMTOOL_VERSION_MAINT], [0], [Maintenance level])
+AC_DEFINE([EEPROMTOOL_VERSION_MAINT], [1], [Maintenance level])
 AM_INIT_AUTOMAKE([subdir-objects foreign])
 AM_SILENT_RULES([yes])
 AC_COPYRIGHT([

@@ -3,7 +3,7 @@
  *
  * Tool for working with Tegra identification EEPROMs.
  *
- * Copyright (c) 2019 Matthew Madison
+ * Copyright (c) 2019, 2020 Matthew Madison
  */
 #include <stddef.h>
 #include <stdio.h>
@@ -16,6 +16,7 @@
 #include <histedit.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <locale.h>
 #include "eeprom.h"
 
 struct context_s {
@@ -128,13 +129,13 @@ parse_macaddr (uint8_t *a, const char *buf)
 	while (*cp != '\0' && count < 6) {
 		if (!isxdigit(*cp) || !isxdigit(*(cp+1)))
 			break;
-		a[count++] = (hexdigit(*cp) << 4) | hexdigit(*(cp+1));
+		a[count++] = (hexdigit(tolower(*cp)) << 4) | hexdigit(tolower(*(cp+1)));
 		cp += 2;
 		if (*cp == ':' || *cp == '-')
 			cp += 1;
 	}
-	if (count != 6 || *cp != '\0')
-		return -1;
+	return (count == 6 && *cp == '\0') ? 0 : -1;
+
 } /* parse_macaddr */
 
 static ssize_t
@@ -336,7 +337,7 @@ do_set (context_t ctx, int argc, char * const argv[])
 	case char_string:
 		len = strlen(argv[valindex]);
 		if (len > eeprom_fields[i].length) {
-			fprintf(stderr, "Error: value longer than field length (%d)\n", eeprom_fields[i].length);
+			fprintf(stderr, "Error: value longer than field length (%zu)\n", eeprom_fields[i].length);
 			return 1;
 		}
 		memcpy(data + eeprom_fields[i].offset, argv[valindex], len);
@@ -431,13 +432,14 @@ command_loop (context_t ctx)
 	size_t promptlen;
 	int argc, alldone, llen, which, ret, n;
 
+	setlocale(LC_CTYPE, "");
 	promptlen = snprintf(promptstr, sizeof(promptstr)-2, "_%s> ", progname);
 	promptstr[promptlen] = '\0';
 	el = el_init(progname, stdin, stdout, stderr);
 
 	el_set(el, EL_PROMPT, &prompt);
 	editor = getenv("EDITOR");
-	if (editor == NULL)
+	if (editor == NULL || strchr(editor, ' ') != NULL)
 		editor = "emacs";
 	el_set(el, EL_EDITOR, editor);
 	hist = history_init();
