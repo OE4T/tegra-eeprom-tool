@@ -15,25 +15,8 @@
 #include <libgen.h>
 #include <ctype.h>
 #include <fcntl.h>
+#include "cvm.h"
 #include "eeprom.h"
-
-typedef enum {
-	TEGRA_SOCTYPE_186,
-	TEGRA_SOCTYPE_194,
-	TEGRA_SOCTYPE_210,
-	TEGRA_SOCTYPE_COUNT__
-} tegra_soctype_t;
-#define TEGRA_SOCTYPE_COUNT ((int) TEGRA_SOCTYPE_COUNT__)
-
-static const struct cvm_i2c_address_s {
-	int busnum;
-	unsigned int addr;
-} cvm_addr[TEGRA_SOCTYPE_COUNT] = {
-	[TEGRA_SOCTYPE_186] = { 7, 0x50 },
-	[TEGRA_SOCTYPE_194] = { 0, 0x50 },
-	[TEGRA_SOCTYPE_210] = { 2, 0x50 },
-};
-	
 
 static struct option options[] = {
 	{ "help",		no_argument,		0, 'h' },
@@ -67,42 +50,6 @@ print_usage (void)
 
 } /* print_usage */
 
-
-/*
- * get_soctype
- */
-static tegra_soctype_t
-get_soctype (void) {
-	ssize_t typelen;
-	int fd;
-	char soctype[65];
-	unsigned long chipid;
-
-	fd = open("/sys/module/tegra_fuse/parameters/tegra_chip_id", O_RDONLY);
-	if (fd < 0)
-		return (tegra_soctype_t)(-1);
-	typelen = read(fd, soctype, sizeof(soctype)-1);
-	close(fd);
-	if (typelen < 0)
-		return (tegra_soctype_t)(-1);
-	while (typelen > 0 && soctype[typelen-1] == '\n') typelen--;
-
-	soctype[typelen] = '\0';
-
-	chipid = strtoul(soctype, NULL, 10);
-	switch (chipid) {
-	case 0x18:
-		return TEGRA_SOCTYPE_186;
-	case 0x19:
-		return TEGRA_SOCTYPE_194;
-	case 0x21:
-		return TEGRA_SOCTYPE_210;
-	default:
-		break;
-	}
-	return (tegra_soctype_t)(-1);
-
-} /* get_soctype */
 
 /*
  * get_prod_mode
@@ -141,6 +88,7 @@ main (int argc, char * const argv[])
 	eeprom_context_t ectx;
 	module_eeprom_t eeprom;
 	tegra_soctype_t soctype;
+	const cvm_i2c_address_t *addr;
 	char boardrev[4];
 	
 	progname = basename(argv0_copy);
@@ -168,14 +116,15 @@ main (int argc, char * const argv[])
 	argc -= optind;
 	argv += optind;
 
-	soctype = get_soctype();
-	if ((int) soctype < 0) {
+	soctype = cvm_soctype();
+	addr = cvm_i2c_address();
+	if (soctype == TEGRA_SOCTYPE_INVALID || addr == NULL) {
 		fprintf(stderr, "Error: could not identify SoC type\n");
 		ret = 1;
 		goto depart;
 	}
 
-	ectx = eeprom_open_i2c(cvm_addr[soctype].busnum, cvm_addr[soctype].addr, module_type_cvm);
+	ectx = eeprom_open_i2c(addr->busnum, addr->addr, module_type_cvm);
 	if (ectx == NULL) {
 		ret = errno;
 		fprintf(stderr, "Error: could not open CVM EEPROM\n");

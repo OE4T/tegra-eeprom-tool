@@ -17,7 +17,9 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <locale.h>
+#include <limits.h>
 #include "eeprom.h"
+#include "cvm.h"
 
 struct context_s {
 	eeprom_context_t e;
@@ -502,8 +504,11 @@ main (int argc, char * const argv[])
 	option_routine_t dispatch = NULL;
 	char *argv0_copy = strdup(argv[0]);
         char *eeprom_device = NULL;
-	int busnum, use_i2c;
-	unsigned int i2c_addr;
+	cvm_i2c_address_t i2c_address;
+	const cvm_i2c_address_t *i2caddr;
+	int use_i2c;
+	ssize_t len;
+	char eeprompath[PATH_MAX];
 	eeprom_module_type_t mtype = module_type_normal;
 
 	progname = basename(argv0_copy);
@@ -540,21 +545,50 @@ main (int argc, char * const argv[])
 	argc -= optind;
 	argv += optind;
 
+	/*
+	 * If no device specified, assume CVM is desired.
+	 * Otherwise, if the device looks like an I2C address, use that.
+	 */ 
+	i2caddr = NULL;
+	use_i2c = 0;
 	if (eeprom_device == NULL) {
-		fprintf(stderr, "Error: no EEPROM device specified\n");
-		print_usage(1);
-		ret = 1;
-		goto depart;
+		i2caddr = cvm_i2c_address();
+		if (i2caddr == NULL) {
+			fprintf(stderr, "Error: no EEPROM device specified and cannot identify CVM location\n");
+			print_usage(1);
+			ret = 1;
+			goto depart;
+		}
+		mtype = module_type_cvm;
+	} else if (sscanf(eeprom_device, "%d-%04x", &i2c_address.busnum, &i2c_address.addr) == 2)
+			i2caddr = &i2c_address;
+
+	/*
+	 * If we have an I2C address, see if there's an EEPROM driver loaded for it.
+	 * If so, prefer using that rather than userland I2C calls.
+	 */
+	if (i2caddr != NULL) {
+		len = snprintf(eeprompath, sizeof(eeprompath)-1, "/sys/bus/i2c/devices/%d-%04x/eeprom",
+			       i2caddr->busnum, i2caddr->addr);
+		if (len < 0) {
+			fprintf(stderr, "Error: could not format path name for EEPROM\n");
+			ret = 1;
+			goto depart;
+		}
+		eeprompath[len] = '\0';
+		if (access(eeprompath, F_OK) == 0)
+			eeprom_device = eeprompath;
+		else
+			use_i2c = 1;
 	}
 
-	use_i2c = sscanf(eeprom_device, "%d-%04x", &busnum, &i2c_addr) == 2;
 	ctx = calloc(1, sizeof(struct context_s));
 	if (ctx == NULL) {
 		perror("allocating context structure");
 		return errno;
 	}
 	if (use_i2c)
-		ctx->e = eeprom_open_i2c(busnum, i2c_addr, mtype);
+		ctx->e = eeprom_open_i2c(i2caddr->busnum, i2caddr->addr, mtype);
 	else
 		ctx->e = eeprom_open(eeprom_device, mtype);
 	if (ctx->e == NULL) {
