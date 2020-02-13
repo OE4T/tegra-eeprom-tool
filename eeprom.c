@@ -53,6 +53,7 @@ struct module_eeprom_v1_raw {
 
 struct eeprom_context_s {
 	int fd;
+	int readonly;
 	eeprom_module_type_t mtype;
 	struct module_eeprom_v1_raw eeprom_data;
 };
@@ -154,7 +155,7 @@ extract_macaddr (uint8_t *dst, const uint8_t *src)
 } /* extract_macaddr */
 
 static eeprom_context_t
-open_common (int fd, eeprom_module_type_t mtype)
+open_common (int fd, eeprom_module_type_t mtype, int readonly)
 {
 	eeprom_context_t ctx;
 	uint8_t *bp;
@@ -168,6 +169,7 @@ open_common (int fd, eeprom_module_type_t mtype)
 	}
 	ctx->mtype = mtype;
 	ctx->fd = fd;
+	ctx->readonly = readonly;
 	for (bp = (uint8_t *) &ctx->eeprom_data, offset = 0;
 	     offset < sizeof(ctx->eeprom_data); offset += len, bp += len) {
 		len = read(fd, bp, sizeof(ctx->eeprom_data)-offset);
@@ -202,7 +204,7 @@ eeprom_open_i2c (unsigned int bus, unsigned int addr, eeprom_module_type_t mtype
 		close(fd);
 		return NULL;
 	}
-	return open_common(fd, mtype);
+	return open_common(fd, mtype, 1);
 
 } /* eeprom_open_i2c */
 
@@ -220,7 +222,7 @@ eeprom_open (const char *pathname, eeprom_module_type_t mtype)
 	fd = open(pathname, O_RDWR);
 	if (fd < 0)
 		return NULL;
-	return open_common(fd, mtype);
+	return open_common(fd, mtype, 0);
 
 } /* eeprom_open */
 
@@ -238,6 +240,18 @@ eeprom_close (eeprom_context_t ctx)
 } /* eeprom_close */
 
 /*
+ * eeprom_readonly
+ *
+ * returns 1 if open read-only, 0 otherwise.
+ */
+int
+eeprom_readonly (eeprom_context_t ctx)
+{
+	return ctx->readonly;
+
+} /* eeprom_readonly */
+
+/*
  * eeprom_read
  *
  * Validate the EEPROM data obtained from the device
@@ -252,10 +266,11 @@ eeprom_read (eeprom_context_t ctx, module_eeprom_t *data)
 {
 	struct module_eeprom_v1_raw *rawdata = &ctx->eeprom_data;
 
+	memset(data, 0, sizeof(module_eeprom_t));
+
 	if (!eeprom_data_valid(ctx))
 		return -1;
 
-	memset(data, 0, sizeof(module_eeprom_t));
 	if (rawdata->partnumber[0] == 0xcc) {
 		data->partnumber_type = partnum_type_customer;
 		extract_string(data->partnumber, rawdata->partnumber+1, sizeof(rawdata->partnumber)-1);
@@ -294,6 +309,11 @@ eeprom_write (eeprom_context_t ctx, module_eeprom_t *data)
 	uint8_t *bp;
 	size_t remain;
 	ssize_t n;
+
+	if (ctx->readonly) {
+		errno = EROFS;
+		return -1;
+	}
 
 	if (!eeprom_data_valid(ctx)) {
 		memset(rawdata, 0, sizeof(*rawdata));

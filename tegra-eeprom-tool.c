@@ -26,6 +26,7 @@ struct context_s {
 	eeprom_module_type_t mtype;
 	module_eeprom_t data;
 	int havedata;
+	int readonly;
 	int data_modified;
 };
 typedef struct context_s *context_t;
@@ -231,7 +232,7 @@ do_show (context_t ctx, int argc, char * const argv[])
 	char strbuf[128];
 	uint8_t *data = (uint8_t *) &ctx->data;
 
-	if (!ctx->havedata) {
+	if (!ctx->havedata && !ctx->data_modified) {
 		fprintf(stderr, "Error: no valid EEPROM contents\n");
 		return 1;
 	}
@@ -241,8 +242,9 @@ do_show (context_t ctx, int argc, char * const argv[])
 		if (format_field(ctx, i, strbuf, sizeof(strbuf)) < 0)
 			fprintf(stderr, "Error: could not format field '%s'\n", eeprom_fields[i].name);
 		else
-			printf("%s: %s%s\n", eeprom_fields[i].name, strbuf,
-			       (i == 0 ? (ctx->data.partnumber_type == partnum_type_nvidia ? " (nvidia)" : " (customer)") : ""));
+			printf("%s%s: %s\n", eeprom_fields[i].name,
+			       (i == 0 ? (ctx->data.partnumber_type == partnum_type_nvidia ? "[nvidia]" : "[customer]") : ""),
+			       strbuf);
 	}
 
 	return 0;
@@ -269,7 +271,7 @@ do_get (context_t ctx, int argc, char * const argv[])
 		fprintf(stderr, "unrecognized field name: %s\n", argv[0]);
 		return 1;
 	}
-	if (!ctx->havedata) {
+	if (!ctx->havedata && !ctx->data_modified) {
 		fprintf(stderr, "Error: no valid EEPROM contents\n");
 		return 1;
 	}
@@ -282,7 +284,7 @@ do_get (context_t ctx, int argc, char * const argv[])
 		return 1;
 	}
 	printf("%s%s\n", strbuf,
-	       (i == 0 ? (ctx->data.partnumber_type == partnum_type_nvidia ? " (nvidia)" : " (customer)") : ""));
+	       (i == 0 ? (ctx->data.partnumber_type == partnum_type_nvidia ? " [nvidia]" : " [customer]") : ""));
 	return 0;
 
 } /* do_get */
@@ -308,6 +310,10 @@ do_set (context_t ctx, int argc, char * const argv[])
 	i = parse_fieldname(argv[0]);
 	if (i < 0) {
 		fprintf(stderr, "unrecognized field name: %s\n", argv[0]);
+		return 1;
+	}
+	if (ctx->readonly) {
+		fprintf(stderr, "Error: EEPROM is read-only\n");
 		return 1;
 	}
 	if (ctx->mtype != module_type_cvm && eeprom_fields[i].cvm_only) {
@@ -373,6 +379,10 @@ do_set (context_t ctx, int argc, char * const argv[])
 static int
 do_verify (context_t ctx, int argc, char * const argv[])
 {
+	if (ctx->data_modified) {
+		fprintf(stderr, "Error: pending changes, write before verifying\n");
+		return 1;
+	}
 	if (!eeprom_data_valid(ctx->e)) {
 		fprintf(stderr, "Verification failed: EEPROM contents not valid\n");
 		return 1;
@@ -390,6 +400,10 @@ do_verify (context_t ctx, int argc, char * const argv[])
 static int
 do_write (context_t ctx, int argc, char * const argv[])
 {
+	if (ctx->readonly) {
+		fprintf(stderr, "Error: EEPROM is read-only\n");
+		return 1;
+	}
 	/*
 	 * havedata is set if we read in valid data;
 	 * data_modified is set if we changed a field
@@ -403,7 +417,7 @@ do_write (context_t ctx, int argc, char * const argv[])
 		return 1;
 	}
 	if (eeprom_write(ctx->e, &ctx->data) < 0) {
-		fprintf(stderr, "Error: EEPROM write failed\n");
+		fprintf(stderr, "Error: EEPROM write failed: %s\n", strerror(errno));
 		return 1;
 	}
 	ctx->havedata = 1;
@@ -441,9 +455,14 @@ command_loop (context_t ctx)
 
 	el_set(el, EL_PROMPT, &prompt);
 	editor = getenv("EDITOR");
-	if (editor == NULL || strchr(editor, ' ') != NULL)
-		editor = "emacs";
-	el_set(el, EL_EDITOR, editor);
+	if (editor != NULL && strchr(editor, ' ') != NULL) {
+		char *edtemp = strdup(editor);
+		char *sp = strchr(edtemp, ' ');
+		*sp = '\0';
+		el_set(el, EL_EDITOR, edtemp);
+		free(edtemp);
+	} else if (editor != NULL)
+		el_set(el, EL_EDITOR, editor);
 	hist = history_init();
 	if (hist != NULL) {
 		history(hist, &ev, H_SETSIZE, 100);
@@ -598,6 +617,7 @@ main (int argc, char * const argv[])
 	}
 	ctx->mtype = mtype;
 	ctx->havedata = eeprom_read(ctx->e, &ctx->data) == 0;
+	ctx->readonly = eeprom_readonly(ctx->e);
 
 	if (argc < 1) {
 		ret = command_loop(ctx);

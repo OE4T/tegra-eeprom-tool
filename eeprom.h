@@ -37,5 +37,6 @@ int eeprom_data_valid(eeprom_context_t ctx);
 int eeprom_read(eeprom_context_t ctx, module_eeprom_t *data);
 int eeprom_write(eeprom_context_t ctx, module_eeprom_t *data);
 void eeprom_close(eeprom_context_t ctx);
+int eeprom_readonly(eeprom_context_t ctx);
 
 #endif /* eeprom_h__ */
