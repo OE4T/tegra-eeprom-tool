@@ -53,7 +53,6 @@ struct module_eeprom_v1_raw {
 
 struct eeprom_context_s {
 	int fd;
-	int i2cdev;
 	eeprom_module_type_t mtype;
 	struct module_eeprom_v1_raw eeprom_data;
 };
@@ -154,48 +153,32 @@ extract_macaddr (uint8_t *dst, const uint8_t *src)
 
 } /* extract_macaddr */
 
-/*
- * i2c_read
- *
- * Reads a byte from an I2C device.
- */
-static int
-i2c_read (int fd, uint8_t addr)
+static eeprom_context_t
+open_common (int fd, eeprom_module_type_t mtype)
 {
-	struct i2c_smbus_ioctl_data args;
-	union i2c_smbus_data data;
-	int err;
-	memset(&args, 0, sizeof(args));
-	args.read_write = I2C_SMBUS_READ;
-	args.command = addr;
-	args.size = I2C_SMBUS_BYTE_DATA;
-	args.data = &data;
-	if (ioctl(fd, I2C_SMBUS, &args) < 0)
-		return -1;
-	return data.byte & 0xff;
+	eeprom_context_t ctx;
+	uint8_t *bp;
+	ssize_t len;
+	size_t offset;
 
-} /* i2c_read */
-
-/*
- * i2c_write
- *
- * Writes a byte to an I2C device.
- */
-static int
-i2c_write (int fd, uint8_t addr, uint8_t val)
-{
-	struct i2c_smbus_ioctl_data args;
-	union i2c_smbus_data data;
-	int err;
-	memset(&args, 0, sizeof(args));
-	args.read_write = I2C_SMBUS_WRITE;
-	args.command = addr;
-	args.size = I2C_SMBUS_BYTE_DATA;
-	args.data = &data;
-	data.byte = val;
-	return ioctl(fd, I2C_SMBUS, &args);
-
-} /* i2c_write */
+	ctx = calloc(1, sizeof(struct eeprom_context_s));
+	if (ctx == NULL) {
+		close(fd);
+		return ctx;
+	}
+	ctx->mtype = mtype;
+	ctx->fd = fd;
+	for (bp = (uint8_t *) &ctx->eeprom_data, offset = 0;
+	     offset < sizeof(ctx->eeprom_data); offset += len, bp += len) {
+		len = read(fd, bp, sizeof(ctx->eeprom_data)-offset);
+		if (len < 0) {
+			close(fd);
+			free(ctx);
+			return NULL;
+		}
+	}
+	return ctx;
+}
 
 /*
  * eeprom_open_i2c
@@ -205,12 +188,9 @@ i2c_write (int fd, uint8_t addr, uint8_t val)
 eeprom_context_t
 eeprom_open_i2c (unsigned int bus, unsigned int addr, eeprom_module_type_t mtype)
 {
-	eeprom_context_t ctx;
 	char devname[32];
 	ssize_t len;
-	uint8_t *bp;
 	int fd;
-	unsigned int offset;
 
 	len = snprintf(devname, sizeof(devname)-1, "/dev/i2c-%u", bus);
 	if (len < 0)
@@ -222,25 +202,7 @@ eeprom_open_i2c (unsigned int bus, unsigned int addr, eeprom_module_type_t mtype
 		close(fd);
 		return NULL;
 	}
-	ctx = calloc(1, sizeof(struct eeprom_context_s));
-	if (ctx == NULL) {
-		close(fd);
-		return ctx;
-	}
-	ctx->mtype = mtype;
-	ctx->fd = fd;
-	ctx->i2cdev = 1;
-	for (bp = (uint8_t *) &ctx->eeprom_data, offset = 0;
-	     offset < sizeof(ctx->eeprom_data); offset++) {
-		int val = i2c_read(fd, offset);
-		if (val < 0) {
-			close(fd);
-			free(ctx);
-			return NULL;
-		}
-		*bp++ = val & 0xff;
-	}
-	return ctx;
+	return open_common(fd, mtype);
 
 } /* eeprom_open_i2c */
 
@@ -253,33 +215,12 @@ eeprom_open_i2c (unsigned int bus, unsigned int addr, eeprom_module_type_t mtype
 eeprom_context_t
 eeprom_open (const char *pathname, eeprom_module_type_t mtype)
 {
-	eeprom_context_t ctx;
-	ssize_t remain, n;
-	uint8_t *bp;
 	int fd;
-	unsigned int offset;
 
 	fd = open(pathname, O_RDWR);
 	if (fd < 0)
 		return NULL;
-	ctx = calloc(1, sizeof(struct eeprom_context_s));
-	if (ctx == NULL) {
-		close(fd);
-		return ctx;
-	}
-	ctx->mtype = mtype;
-	ctx->fd = fd;
-	ctx->i2cdev = 0;
-	for (bp = (uint8_t *) &ctx->eeprom_data, remain = sizeof(ctx->eeprom_data);
-	     remain > 0; remain -= n, bp += n) {
-		n = read(fd, bp, remain);
-		if (n < 0) {
-			close(fd);
-			free(ctx);
-			return NULL;
-		}
-	}
-	return ctx;
+	return open_common(fd, mtype);
 
 } /* eeprom_open */
 
@@ -350,6 +291,9 @@ int
 eeprom_write (eeprom_context_t ctx, module_eeprom_t *data)
 {
 	struct module_eeprom_v1_raw *rawdata = &ctx->eeprom_data;
+	uint8_t *bp;
+	size_t remain;
+	ssize_t n;
 
 	if (!eeprom_data_valid(ctx)) {
 		memset(rawdata, 0, sizeof(*rawdata));
@@ -390,23 +334,13 @@ eeprom_write (eeprom_context_t ctx, module_eeprom_t *data)
 	}
 	rawdata->crc8 = calc_crc8((uint8_t *) rawdata, 255);
 
-	if (ctx->i2cdev) {
-		uint8_t *buf = (uint8_t *) rawdata;
-		int i;
-		for (i = 0; i < sizeof(*rawdata); i++)
-			if (i2c_write(ctx->fd, i, buf[i]) < 0)
-				return -1;
-	} else {
-		uint8_t *bp = (uint8_t *) rawdata;
-		size_t remain;
-		ssize_t n;
-		if (lseek(ctx->fd, 0, SEEK_SET) < 0)
+	if (lseek(ctx->fd, 0, SEEK_SET) < 0)
+		return -1;
+	bp = (uint8_t *) rawdata;
+	for (remain = sizeof(*rawdata); remain > 0; remain -= n, bp += n) {
+		n = write(ctx->fd, bp, remain);
+		if (n < 0)
 			return -1;
-		for (remain = sizeof(*rawdata); remain > 0; remain -= n, bp += n) {
-			n = write(ctx->fd, bp, remain);
-			if (n < 0)
-				return -1;
-		}
 	}
 	return 0;
 
