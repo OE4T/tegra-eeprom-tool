@@ -15,6 +15,7 @@
 #include <libgen.h>
 #include <ctype.h>
 #include <fcntl.h>
+#include <limits.h>
 #include "cvm.h"
 #include "eeprom.h"
 
@@ -85,10 +86,12 @@ main (int argc, char * const argv[])
 {
 	int c, which, ret;
 	char *argv0_copy = strdup(argv[0]);
-	eeprom_context_t ectx;
+	eeprom_context_t ectx = NULL;
 	module_eeprom_t eeprom;
 	tegra_soctype_t soctype;
 	const cvm_i2c_address_t *addr;
+	ssize_t len;
+	char eeprompath[PATH_MAX];
 	char boardrev[4];
 	
 	progname = basename(argv0_copy);
@@ -124,7 +127,16 @@ main (int argc, char * const argv[])
 		goto depart;
 	}
 
-	ectx = eeprom_open_i2c(addr->busnum, addr->addr, module_type_cvm);
+	len = snprintf(eeprompath, sizeof(eeprompath)-1,
+		       "/sys/bus/i2c/devices/%d-%04x/eeprom",
+		       addr->busnum, addr->addr);
+	if (len > 0) {
+		eeprompath[len] = '\0';
+		if (access(eeprompath, F_OK) == 0)
+			ectx = eeprom_open(eeprompath, module_type_cvm);
+	}
+	if (ectx == NULL)
+		ectx = eeprom_open_i2c(addr->busnum, addr->addr, module_type_cvm);
 	if (ectx == NULL) {
 		ret = errno;
 		fprintf(stderr, "Error: could not open CVM EEPROM\n");
