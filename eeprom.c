@@ -329,7 +329,7 @@ eeprom_write (eeprom_context_t ctx, module_eeprom_t *data)
 	if (data->partnumber_type == partnum_type_nvidia)
 		strncpy(rawdata->partnumber, data->partnumber, sizeof(rawdata->partnumber));
 	else {
-		rawdata->partnumber[0] = 0xcc;
+		rawdata->partnumber[0] = (char) 0xcc;
 		strncpy(&rawdata->partnumber[1], data->partnumber, sizeof(rawdata->partnumber)-1);
 	}
 	strncpy(rawdata->asset_id, data->asset_id, sizeof(rawdata->asset_id));

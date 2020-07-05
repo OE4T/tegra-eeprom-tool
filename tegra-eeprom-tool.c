@@ -121,6 +121,8 @@ format_macaddr (char *buf, size_t bufsize, uint8_t *a)
 	if (n > 0)
 		*(buf + n) = '\0';
 
+	return n;
+
 } /* format_macaddr */
 
 static int
@@ -230,7 +232,6 @@ do_show (context_t ctx, int argc, char * const argv[])
 {
 	int i;
 	char strbuf[128];
-	uint8_t *data = (uint8_t *) &ctx->data;
 
 	if (!ctx->havedata && !ctx->data_modified) {
 		fprintf(stderr, "Error: no valid EEPROM contents\n");
@@ -298,7 +299,7 @@ do_get (context_t ctx, int argc, char * const argv[])
 static int
 do_set (context_t ctx, int argc, char * const argv[])
 {
-	int ret, i, valindex;
+	int i, valindex;
 	uint8_t *data = (uint8_t *) &ctx->data;
 	uint8_t addr[6];
 	size_t len;
