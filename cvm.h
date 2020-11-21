@@ -18,5 +18,6 @@ typedef struct cvm_i2c_address_s cvm_i2c_address_t;
 
 const cvm_i2c_address_t *cvm_i2c_address(void);
 tegra_soctype_t cvm_soctype(void);
+const char *cvm_soctype_name(tegra_soctype_t soctype);
 
 #endif /* cvm_h__ */

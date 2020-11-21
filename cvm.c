@@ -54,6 +54,25 @@ cvm_soctype (void) {
 
 } /* cvm_soctype */
 
+/*
+ * cvm_soctype_name
+ */
+const char *
+cvm_soctype_name (tegra_soctype_t soctype)
+{
+	switch (soctype) {
+	case TEGRA_SOCTYPE_186:
+		return "Tegra186";
+	case TEGRA_SOCTYPE_194:
+		return "Tegra194";
+	case TEGRA_SOCTYPE_210:
+		return "Tegra210";
+	default:
+		break;
+	}
+	return "INVALID";
+
+} /* cvm_soctype_name */
 
 /*
  * cvm_i2c_address
