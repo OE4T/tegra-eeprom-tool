@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=${prefix}
+libdir=@libdir@
+includedir=@includedir@
+
+Name: tegra-eeprom
+Version: @VERSION@
+Description: Library for reading and writing Tegra EEPROMs
+Libs: -L${libdir} -ltegra-eeprom
+Cflags: -I${includedir}

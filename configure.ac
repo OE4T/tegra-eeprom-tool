@@ -27,5 +27,5 @@ AC_PROG_CC_C_O
 PKG_PROG_PKG_CONFIG
 PKG_CHECK_MODULES([LIBEDIT], [libedit])
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile tegra-eeprom.pc])
 AC_OUTPUT
