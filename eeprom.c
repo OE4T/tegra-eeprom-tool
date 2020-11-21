@@ -268,8 +268,10 @@ eeprom_read (eeprom_context_t ctx, module_eeprom_t *data)
 
 	memset(data, 0, sizeof(module_eeprom_t));
 
-	if (!eeprom_data_valid(ctx))
+	if (!eeprom_data_valid(ctx)) {
+		errno = EFAULT;
 		return -1;
+	}
 
 	if (rawdata->partnumber[0] == 0xcc) {
 		data->partnumber_type = partnum_type_customer;
