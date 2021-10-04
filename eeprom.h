@@ -25,6 +25,7 @@ struct module_eeprom_s {
 	uint8_t  factory_default_wifi_alt_mac[6];
 	uint8_t  factory_default_ether_mac[6];
 	char     asset_id[15];
+	uint16_t vendor_version;
 	uint8_t  vendor_wifi_mac[6];
 	uint8_t  vendor_bt_mac[6];
 	uint8_t  vendor_ether_mac[6];
