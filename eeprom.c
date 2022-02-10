@@ -8,8 +8,6 @@
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
@@ -122,12 +120,13 @@ static void
 extract_string (char *dst, const char *src, size_t maxlen)
 {
 	size_t len = maxlen;
+	uint8_t *s = (uint8_t *) src;
 
-	if (src[len-1] == 0xff)
-		while (len > 0 && src[len-1] == 0xff)
+	if (s[len-1] == 0xff)
+		while (len > 0 && s[len-1] == 0xff)
 			len -= 1;
-	else if (src[len-1] == '\0')
-		while (len > 0 && src[len-1] == '\0')
+	else if (s[len-1] == '\0')
+		while (len > 0 && s[len-1] == '\0')
 			len -= 1;
 	if (len > 0)
 		memcpy(dst, src, len);
@@ -282,7 +281,7 @@ eeprom_read (eeprom_context_t ctx, module_eeprom_t *data)
 		return -1;
 	}
 
-	if (rawdata->partnumber[0] == 0xcc) {
+	if ((uint8_t) rawdata->partnumber[0] == 0xcc) {
 		data->partnumber_type = partnum_type_customer;
 		extract_string(data->partnumber, rawdata->partnumber+1, sizeof(rawdata->partnumber)-1);
 	} else {
