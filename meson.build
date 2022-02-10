@@ -1,5 +1,5 @@
 project('tegra-eeprom', ['c'],
-        version: '1.2.0',
+        version: '1.3.0',
         meson_version: '>= 0.50.0',
         default_options: [
           'buildtype=debugoptimized',
@@ -28,20 +28,20 @@ src_tegra_eeprom = [
         'boardspec.h']
 
 # Shared Library
-lib_tegra_eeprom = shared_library('tegra_eeprom', src_tegra_eeprom,
+lib_tegra_eeprom = shared_library('tegra-eeprom', src_tegra_eeprom,
         version: meson.project_version(),
         install : true)
 install_headers('boardspec.h', 'cvm.h', 'eeprom.h', subdir : 'tegra-eeprom')
 
 # Executables
 args_tegra_eeprom_tool = [ '-D_DEFAULT_SOURCE', '-D_BSD_SOURCE' ]
-executable('tegra_eeprom_tool', src_tegra_eeprom_tool,
+executable('tegra-eeprom-tool', src_tegra_eeprom_tool,
         link_with : lib_tegra_eeprom,
         c_args : args_tegra_eeprom_tool,
         dependencies: deps,
         install : true)
 
-executable('tegra_boardspec', src_tegra_boardspec,
+executable('tegra-boardspec', src_tegra_boardspec,
         link_with : lib_tegra_eeprom,
         install : true)
 
