@@ -5,11 +5,9 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
-#include <libgen.h>
 #include <ctype.h>
 #include <fcntl.h>
 #include <limits.h>
