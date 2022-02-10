@@ -193,6 +193,11 @@ eeprom_open_i2c (unsigned int bus, unsigned int addr, eeprom_module_type_t mtype
 	char devname[32];
 	ssize_t len;
 	int fd;
+	struct i2c_smbus_ioctl_data args = {
+		.read_write = I2C_SMBUS_WRITE,
+		.size = I2C_SMBUS_BYTE,
+	};
+
 
 	len = snprintf(devname, sizeof(devname)-1, "/dev/i2c-%u", bus);
 	if (len < 0)
@@ -204,6 +209,14 @@ eeprom_open_i2c (unsigned int bus, unsigned int addr, eeprom_module_type_t mtype
 		close(fd);
 		return NULL;
 	}
+	// Set the starting address to the start of the EEPROM,
+	// since it appears the driver may not do this for us
+	// automatically
+	if (ioctl(fd, I2C_SMBUS, &args) < 0) {
+		close(fd);
+		return NULL;
+	}
+
 	return open_common(fd, mtype, 1);
 
 } /* eeprom_open_i2c */
@@ -367,4 +380,3 @@ eeprom_write (eeprom_context_t ctx, module_eeprom_t *data)
 	return 0;
 
 } /* eeprom_write */
-
