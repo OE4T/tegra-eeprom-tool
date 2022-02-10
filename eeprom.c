@@ -335,7 +335,7 @@ eeprom_write (eeprom_context_t ctx, module_eeprom_t *data)
 			memcpy(rawdata->macfmt_tag, macfmt_tag, sizeof(rawdata->macfmt_tag));
 			rawdata->macfmt_version = htole16(MACFMT_VERSION);
 		}
-	};
+	}
 
 	if (data->partnumber_type == partnum_type_nvidia)
 		strncpy(rawdata->partnumber, data->partnumber, sizeof(rawdata->partnumber));
