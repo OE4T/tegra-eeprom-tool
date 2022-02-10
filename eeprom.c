@@ -1,11 +1,7 @@
-/*
- * eeprom.c
- *
- * Jetson identification EEPROM functions.
- *
- * Copyright (c) 2019 Matthew Madison
- *
- */
+// Copyright (c) 2019-2022, Matthew Madison
+//
+// SPDX-License-Identifier: MIT
+
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>

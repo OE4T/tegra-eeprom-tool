@@ -1,11 +1,7 @@
-/*
- * boardspec
- *
- * API for extracting board information
- * from the CVM EEPROM.
- *
- * Copyright (c) 2020 Matthew Madison
- */
+// Copyright (c) 2020 Matthew Madison
+//
+// SPDX-License-Identifier: MIT
+
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>

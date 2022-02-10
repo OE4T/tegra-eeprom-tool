@@ -1,10 +1,7 @@
-/*
- * cvm.c
- *
- * SoC-specific functions.
- *
- * Copyright (c) 2020 Matthew Madison
- */
+// Copyright (c) 2020 Matthew Madison
+//
+// SPDX-License-Identifier: MIT
+
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>

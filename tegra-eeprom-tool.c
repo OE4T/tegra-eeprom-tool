@@ -1,10 +1,7 @@
-/*
- * tegra-eeprom-tool
- *
- * Tool for working with Tegra identification EEPROMs.
- *
- * Copyright (c) 2019, 2020 Matthew Madison
- */
+// Copyright (c) 2019, 2020 Matthew Madison
+//
+// SPDX-License-Identifier: MIT
+
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -568,7 +565,7 @@ main (int argc, char * const argv[])
 	/*
 	 * If no device specified, assume CVM is desired.
 	 * Otherwise, if the device looks like an I2C address, use that.
-	 */ 
+	 */
 	i2caddr = NULL;
 	use_i2c = 0;
 	if (eeprom_device == NULL) {

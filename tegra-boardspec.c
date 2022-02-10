@@ -1,10 +1,7 @@
-/*
- * tegra-boardspec
- *
- * Extracts board information from the CVM EEPROM.
- *
- * Copyright (c) 2020 Matthew Madison
- */
+// Copyright (c) 2020 Matthew Madison
+//
+// SPDX-License-Identifier: MIT
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -55,7 +52,7 @@ main (int argc, char * const argv[])
 	int c, which, ret, len;
 	char specbuf[128];
 	char *argv0_copy = strdup(argv[0]);
-	
+
 	progname = basename(argv0_copy);
 
 	for (;;) {

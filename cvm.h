@@ -1,6 +1,10 @@
 #ifndef cvm_h__
 #define cvm_h__
-/* Copyright (c) 2020 Matthew Madison */
+
+// Copyright (c) 2020 Matthew Madison
+//
+// SPDX-License-Identifier: MIT
+
 typedef enum {
 	TEGRA_SOCTYPE_186,
 	TEGRA_SOCTYPE_194,

@@ -1,6 +1,9 @@
 #ifndef eeprom_h__
 #define eeprom_h__
-/* Copyright (c) 2019 Matthew Madison */
+
+// Copyright (c) 2019 Matthew Madison
+//
+// SPDX-License-Identifier: MIT
 
 #include <inttypes.h>
 
