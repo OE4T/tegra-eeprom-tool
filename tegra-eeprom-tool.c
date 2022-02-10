@@ -81,26 +81,23 @@ static struct option options[] = {
 	{ "help",		no_argument,		0, 'h' },
 	{ 0,			0,			0, 0   }
 };
-static const char *shortopts = ":d:chv";
+static const char *shortopts = ":d:ch";
 
 static char *optarghelp[] = {
 	"--device             ",
 	"--cvm                ",
 	"--help               ",
-	"--verbose            ",
 };
 
 static char *opthelp[] = {
 	"either an I2C address (<b>-<hexaddr>) or the pathname of an EEPROM or file (REQUIRED)",
 	"EEPROM is for a SoM ('cvm' type) rather than a board",
 	"display this help text",
-	"log informational messages to stderr"
 };
 
 static char *progname;
 static char promptstr[256];
 static int continuation;
-static int verbose;
 
 static uint8_t
 hexdigit (int c) {
@@ -544,9 +541,6 @@ main (int argc, char * const argv[])
 			goto depart;
 		case 'd':
 			eeprom_device = optarg;
-			break;
-		case 'v':
-			verbose = 1;
 			break;
 		case 'c':
 			mtype = module_type_cvm;
