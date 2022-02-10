@@ -1,10 +1,10 @@
-prefix=@prefix@
+prefix=@CMAKE_INSTALL_PREFIX@
 exec_prefix=${prefix}
-libdir=@libdir@
-includedir=@includedir@
+libdir=${exec_prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@/tegra-eeprom
 
 Name: tegra-eeprom
-Version: @VERSION@
+Version: @PROJECT_VERSION@
 Description: Library for reading and writing Tegra EEPROMs
 Libs: -L${libdir} -ltegra-eeprom
 Cflags: -I${includedir}
