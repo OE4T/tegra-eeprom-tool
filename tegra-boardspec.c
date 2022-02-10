@@ -6,7 +6,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <getopt.h>
-#include <errno.h>
 #include <libgen.h>
 #include "boardspec.h"
 
@@ -31,6 +30,7 @@ print_usage (void)
 {
 	int i;
 
+	printf("\t%s <option>\n\n", progname);
 	printf("\nOptions:\n");
 	for (i = 0; i < sizeof(options)/sizeof(options[0]) && options[i].name != 0; i++) {
 		printf(" %s\t%c%c\t%s\n",
