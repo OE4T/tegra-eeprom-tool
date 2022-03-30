@@ -5,6 +5,11 @@
 //
 // SPDX-License-Identifier: MIT
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #include <inttypes.h>
 
 typedef enum {
@@ -41,5 +46,9 @@ int eeprom_read(eeprom_context_t ctx, module_eeprom_t *data);
 int eeprom_write(eeprom_context_t ctx, module_eeprom_t *data);
 void eeprom_close(eeprom_context_t ctx);
 int eeprom_readonly(eeprom_context_t ctx);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* eeprom_h__ */

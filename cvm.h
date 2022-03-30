@@ -4,6 +4,10 @@
 // Copyright (c) 2020 Matthew Madison
 //
 // SPDX-License-Identifier: MIT
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 typedef enum {
 	TEGRA_SOCTYPE_186,
@@ -23,5 +27,9 @@ typedef struct cvm_i2c_address_s cvm_i2c_address_t;
 const cvm_i2c_address_t *cvm_i2c_address(void);
 tegra_soctype_t cvm_soctype(void);
 const char *cvm_soctype_name(tegra_soctype_t soctype);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* cvm_h__ */
