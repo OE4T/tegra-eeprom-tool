@@ -43,6 +43,7 @@ static struct {
 	size_t length;
 	enum {
 		char_string,
+		hex_data,
 		mac_address,
 	} fieldtype;
 	int cvm_only;
@@ -53,6 +54,7 @@ static struct {
 	{ "factory-default-wifi-alt-mac", offsetof(module_eeprom_t, factory_default_wifi_alt_mac), 6, mac_address, 1 },
 	{ "factory-default-ether-mac", offsetof(module_eeprom_t, factory_default_ether_mac), 6, mac_address, 1 },
 	{ "asset-id", offsetof(module_eeprom_t, asset_id), 15, char_string },
+	{ "vendor-version", offsetof(module_eeprom_t, vendor_version), 1, hex_data },
 	{ "vendor-wifi-mac", offsetof(module_eeprom_t, vendor_wifi_mac), 6, mac_address, 1 },
 	{ "vendor-bt-mac", offsetof(module_eeprom_t, vendor_bt_mac), 6, mac_address, 1 },
 	{ "vendor-ether-mac", offsetof(module_eeprom_t, vendor_ether_mac), 6, mac_address, 1 },
@@ -107,6 +109,34 @@ hexdigit (int c) {
 }
 
 static ssize_t
+format_hexdata (char *buf, size_t bufsize, uint8_t *a)
+{
+	ssize_t n;
+	n = snprintf(buf, bufsize-1, "0x%02x%02x", a[0], a[1]);
+	if (n > 0)
+		*(buf + n) = '\0';
+
+	return n;
+
+} /* format_hexdata */
+
+static int
+parse_hexdata (uint8_t *a, const char *buf)
+{
+	const char *cp = buf;
+	int count = 0;
+
+	while (*cp != '\0' && count < 2) {
+		if (!isxdigit(*cp) || !isxdigit(*(cp+1)))
+			break;
+		a[count++] = (hexdigit(tolower(*cp)) << 4) | hexdigit(tolower(*(cp+1)));
+		cp += 2;
+	}
+	return (count == 2 && *cp == '\0') ? 0 : -1;
+
+} /* parse_hexdata */
+
+static ssize_t
 format_macaddr (char *buf, size_t bufsize, uint8_t *a)
 {
 	ssize_t n;
@@ -150,6 +180,9 @@ format_field (context_t ctx, int i, char *strbuf, size_t bufsize)
 			len = bufsize-1;
 		memcpy(strbuf, data + eeprom_fields[i].offset, len);
 		strbuf[len] = '\0';
+		break;
+	case hex_data:
+		len = format_hexdata(strbuf, bufsize, data + eeprom_fields[i].offset);
 		break;
 	case mac_address:
 		len = format_macaddr(strbuf, bufsize, data + eeprom_fields[i].offset);
@@ -295,6 +328,7 @@ do_set (context_t ctx, int argc, char * const argv[])
 {
 	int i, valindex;
 	uint8_t *data = (uint8_t *) &ctx->data;
+	uint8_t version[2];
 	uint8_t addr[6];
 	size_t len;
 
@@ -348,6 +382,13 @@ do_set (context_t ctx, int argc, char * const argv[])
 			*(data + eeprom_fields[i].offset + len) = '\0';
 			len += 1;
 		}
+		break;
+	case hex_data:
+		if (parse_hexdata(version, argv[valindex]) < 0) {
+			fprintf(stderr, "Error: could not parse hex data '%s'\n", argv[valindex]);
+			return 1;
+		}
+		memcpy(data + eeprom_fields[i].offset, version, sizeof(version));
 		break;
 	case mac_address:
 		if (parse_macaddr(addr, argv[valindex]) < 0) {

@@ -21,7 +21,6 @@ static const char cfgblk_none[4] = "FFFF";
 #define CFGBLK_LENGTH	28
 static const char macfmt_tag[2] = "M1";
 static const uint8_t macaddr_placeholder[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-#define MACFMT_VERSION  0
 struct module_eeprom_v1_raw {
 	uint16_t version;
 	uint16_t length; // no longer used
@@ -37,7 +36,7 @@ struct module_eeprom_v1_raw {
 	char     cfgblk_sig[4];
 	uint16_t cfgblk_len;
 	char     macfmt_tag[2];
-	uint16_t macfmt_version;
+	uint16_t vendor_version;
 	uint8_t  vendor_wifi_mac[6];
 	uint8_t  vendor_bt_mac[6];
 	uint8_t  vendor_ether_mac[6];
@@ -104,8 +103,6 @@ eeprom_data_valid (eeprom_context_t ctx)
 		if (memcmp(data->cfgblk_sig, cfgblk_sig, sizeof(cfgblk_sig)))
 			return 0;
 		if (memcmp(data->macfmt_tag, macfmt_tag, sizeof(macfmt_tag)))
-			return 0;
-		if (le16toh(data->macfmt_version) != MACFMT_VERSION)
 			return 0;
 	}
 	return 1;
@@ -293,6 +290,7 @@ eeprom_read (eeprom_context_t ctx, module_eeprom_t *data)
 	extract_macaddr(data->factory_default_bt_mac, rawdata->factory_default_bt_mac);
 	extract_macaddr(data->factory_default_wifi_alt_mac, rawdata->factory_default_wifi_alt_mac);
 	extract_macaddr(data->factory_default_ether_mac, rawdata->factory_default_ether_mac);
+	data->vendor_version = le16toh(rawdata->vendor_version);
 	extract_macaddr(data->vendor_wifi_mac, rawdata->vendor_wifi_mac);
 	extract_macaddr(data->vendor_bt_mac, rawdata->vendor_bt_mac);
 	extract_macaddr(data->vendor_ether_mac, rawdata->vendor_ether_mac);
@@ -332,7 +330,6 @@ eeprom_write (eeprom_context_t ctx, module_eeprom_t *data)
 			memcpy(rawdata->cfgblk_sig, cfgblk_sig, sizeof(rawdata->cfgblk_sig));
 			rawdata->cfgblk_len = CFGBLK_LENGTH;
 			memcpy(rawdata->macfmt_tag, macfmt_tag, sizeof(rawdata->macfmt_tag));
-			rawdata->macfmt_version = htole16(MACFMT_VERSION);
 		}
 	}
 
@@ -343,6 +340,7 @@ eeprom_write (eeprom_context_t ctx, module_eeprom_t *data)
 		strncpy(&rawdata->partnumber[1], data->partnumber, sizeof(rawdata->partnumber)-1);
 	}
 	strncpy(rawdata->asset_id, data->asset_id, sizeof(rawdata->asset_id));
+	rawdata->vendor_version = htole16(data->vendor_version);
 	if (ctx->mtype == module_type_cvm) {
 		extract_macaddr(rawdata->factory_default_wifi_mac, data->factory_default_wifi_mac);
 		extract_macaddr(rawdata->factory_default_bt_mac, data->factory_default_bt_mac);
