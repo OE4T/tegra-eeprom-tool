@@ -15,36 +15,6 @@
 #include "eeprom.h"
 
 /*
- * get_prod_mode
- *
- */
-static int
-get_prod_mode (unsigned long *mode) {
-	ssize_t modelen;
-	int fd;
-	char prod_mode[65];
-
-	if (mode == NULL) {
-		errno = EINVAL;
-		return -1;
-	}
-	fd = open("/sys/module/tegra_fuse/parameters/tegra_prod_mode", O_RDONLY);
-	if (fd < 0)
-		return fd;
-	modelen = read(fd, prod_mode, sizeof(prod_mode)-1);
-	close(fd);
-	if (modelen < 0)
-		return modelen;
-	while (modelen > 0 && prod_mode[modelen-1] == '\n') modelen--;
-
-	prod_mode[modelen] = '\0';
-
-	*mode = strtoul(prod_mode, NULL, 10);
-	return 0;
-
-} /* get_prod_mode */
-
-/*
  * tegra_boardspec
  *
  * Formats the boardspec for the current system
@@ -60,12 +30,8 @@ tegra_boardspec (char *buf, unsigned int bufsiz)
 	tegra_soctype_t soctype;
 	const cvm_i2c_address_t *addr;
 	ssize_t len;
-	unsigned long prod_mode;
 	char eeprompath[PATH_MAX];
 	char boardrev[4];
-
-	if (get_prod_mode(&prod_mode) < 0)
-		return -1;
 
 	soctype = cvm_soctype();
 	addr = cvm_i2c_address();
@@ -110,19 +76,15 @@ tegra_boardspec (char *buf, unsigned int bufsiz)
 	if (eeprom.partnumber[18] == ' ' && isprint(eeprom.partnumber[19]))
 		memcpy(boardrev, &eeprom.partnumber[19], 3);
 	/*
-	 * XXX punt on the chip revision for now,
-	 * should be 0 for non-T194 parts, 2 for T194.
-	 * Could read the chip rev from sysfs, but
-	 * the value is a kernel-defined enum that
-	 * could change.
+	 * Assuming production mode chips only and hardware chip rev
+	 * of 2 for t194, 0 for others.
 	 */
 	return snprintf(buf, bufsiz,
-			"%-4.4s-%-3.3s-%-4.4s-%s-%lu-%u",
+			"%-4.4s-%-3.3s-%-4.4s-%s-1-%u",
 			&eeprom.partnumber[5],
 			&eeprom.partnumber[15],
 			&eeprom.partnumber[10],
 			boardrev,
-			prod_mode,
 			(soctype == TEGRA_SOCTYPE_194 ? 2 : 0));
 
 } /* tegra_boardspec */
