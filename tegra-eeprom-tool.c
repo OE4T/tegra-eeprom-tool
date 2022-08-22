@@ -441,7 +441,7 @@ command_loop (context_t ctx)
 	char *editor;
 	const char *line, **argv;
 	size_t promptlen;
-	int argc, alldone, llen, which, ret, n;
+	int argc, alldone, llen, which, ret = 0, n;
 
 	setlocale(LC_CTYPE, "");
 	promptlen = snprintf(promptstr, sizeof(promptstr)-2, "_%s> ", progname);
@@ -481,6 +481,7 @@ command_loop (context_t ctx)
 		continuation = n;
 		if (continuation)
 			continue;
+		dispatch = NULL;
 		for (which = 0; which < sizeof(commands)/sizeof(commands[0]); which++) {
 			if (strcmp(argv[0], commands[which].cmd) == 0) {
 				dispatch = commands[which].rtn;
@@ -491,7 +492,7 @@ command_loop (context_t ctx)
 		}
 		if (which >= sizeof(commands)/sizeof(commands[0]))
 			fprintf(stderr, "unrecognized command: %s\n", argv[0]);
-		else if (alldone)
+		else if (alldone || dispatch == NULL)
 			break;
 		else
 			ret = dispatch(ctx, argc-1, (char * const *)&argv[1]);
