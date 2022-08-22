@@ -124,15 +124,22 @@ cvm_soctype_name (tegra_soctype_t soctype)
 } /* cvm_soctype_name */
 
 /*
- * cvm_i2c_address
+ * cvm_i2c_address_for_soctype
  */
 const cvm_i2c_address_t *
-cvm_i2c_address (void) {
-	tegra_soctype_t s = cvm_soctype();
+cvm_i2c_address_for_soctype (tegra_soctype_t s) {
 
-	if (s == TEGRA_SOCTYPE_INVALID)
+	if ((int) s < 0 || s >= TEGRA_SOCTYPE_COUNT)
 		return NULL;
 
 	return &cvm_addr[s];
 
-} /* cvm_i2c_address*/
+} /* cvm_i2c_address_for_soctype */
+
+/*
+ * cvm_i2c_address
+ */
+const cvm_i2c_address_t *
+cvm_i2c_address (void) {
+	return cvm_i2c_address_for_soctype(cvm_soctype());
+} /* cvm_i2c_address */

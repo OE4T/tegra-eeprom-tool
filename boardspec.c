@@ -34,7 +34,7 @@ tegra_boardspec (char *buf, unsigned int bufsiz)
 	char boardrev[4];
 
 	soctype = cvm_soctype();
-	addr = cvm_i2c_address();
+	addr = cvm_i2c_address_for_soctype(soctype);
 	if (soctype == TEGRA_SOCTYPE_INVALID || addr == NULL) {
 		errno = ENODEV;
 		return -1;
