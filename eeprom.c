@@ -52,6 +52,8 @@ struct eeprom_context_s {
 	struct module_eeprom_v1_raw eeprom_data;
 };
 
+typedef ssize_t (*eeprom_readfunc_t)(int fd, void *buf, size_t bufsize);
+
 /*
  * This table was generated using the Python code in the 'Jetson TX1/TX2 Module EEPROM Layout'
  * document downloaded from NVIDIA's web site.
@@ -149,13 +151,65 @@ extract_macaddr (uint8_t *dst, const uint8_t *src)
 
 } /* extract_macaddr */
 
-static eeprom_context_t
-open_common (int fd, eeprom_module_type_t mtype, int readonly)
+/*
+ * normal_read
+ *
+ * Used when we're talking through an EEPROM driver.
+ */
+ssize_t
+normal_read (int fd, void *buf, size_t bufsize)
 {
-	eeprom_context_t ctx;
 	uint8_t *bp;
 	ssize_t len;
 	size_t offset;
+
+	for (bp = buf, offset = 0; offset < bufsize; offset += len, bp += len) {
+		len = read(fd, bp, bufsize-offset);
+		if (len < 0)
+			return len;
+	}
+
+	return bufsize;
+
+} /* normal_read */
+
+/*
+ * smbus_read
+ *
+ * Used when we're talking through the I2C driver.
+ */
+ssize_t
+smbus_read (int fd, void *buf, size_t bufsize)
+{
+	uint8_t *bp = buf;
+	size_t offset;
+	int err;
+
+	union i2c_smbus_data data;
+	struct i2c_smbus_ioctl_data args = {
+		.read_write = I2C_SMBUS_READ,
+		.size = I2C_SMBUS_BYTE_DATA,
+		.data = &data,
+	};
+
+	for (offset = 0; offset < bufsize; offset += 1) {
+		args.command = offset;
+		err = ioctl(fd, I2C_SMBUS, &args);
+		if (err < 0)
+			return err;
+		*bp++ = data.byte & 0xFF;
+	}
+	return (ssize_t) offset;
+
+} /* smbus_read */
+
+/*
+ * open_common
+ */
+static eeprom_context_t
+open_common (int fd, eeprom_module_type_t mtype, int readonly, eeprom_readfunc_t readfunc)
+{
+	eeprom_context_t ctx;
 
 	ctx = calloc(1, sizeof(struct eeprom_context_s));
 	if (ctx == NULL) {
@@ -165,14 +219,10 @@ open_common (int fd, eeprom_module_type_t mtype, int readonly)
 	ctx->mtype = mtype;
 	ctx->fd = fd;
 	ctx->readonly = readonly;
-	for (bp = (uint8_t *) &ctx->eeprom_data, offset = 0;
-	     offset < sizeof(ctx->eeprom_data); offset += len, bp += len) {
-		len = read(fd, bp, sizeof(ctx->eeprom_data)-offset);
-		if (len < 0) {
-			close(fd);
-			free(ctx);
-			return NULL;
-		}
+	if (readfunc(fd, &ctx->eeprom_data, sizeof(ctx->eeprom_data)) < 0) {
+		close(fd);
+		free(ctx);
+		return NULL;
 	}
 	return ctx;
 }
@@ -188,10 +238,6 @@ eeprom_open_i2c (unsigned int bus, unsigned int addr, eeprom_module_type_t mtype
 	char devname[32];
 	ssize_t len;
 	int fd;
-	struct i2c_smbus_ioctl_data args = {
-		.read_write = I2C_SMBUS_WRITE,
-		.size = I2C_SMBUS_BYTE,
-	};
 
 
 	len = snprintf(devname, sizeof(devname)-1, "/dev/i2c-%u", bus);
@@ -204,15 +250,8 @@ eeprom_open_i2c (unsigned int bus, unsigned int addr, eeprom_module_type_t mtype
 		close(fd);
 		return NULL;
 	}
-	// Set the starting address to the start of the EEPROM,
-	// since it appears the driver may not do this for us
-	// automatically
-	if (ioctl(fd, I2C_SMBUS, &args) < 0) {
-		close(fd);
-		return NULL;
-	}
 
-	return open_common(fd, mtype, 1);
+	return open_common(fd, mtype, 1, smbus_read);
 
 } /* eeprom_open_i2c */
 
@@ -230,7 +269,7 @@ eeprom_open (const char *pathname, eeprom_module_type_t mtype)
 	fd = open(pathname, O_RDWR);
 	if (fd < 0)
 		return NULL;
-	return open_common(fd, mtype, 0);
+	return open_common(fd, mtype, 0, normal_read);
 
 } /* eeprom_open */
 
@@ -337,12 +376,12 @@ eeprom_write (eeprom_context_t ctx, module_eeprom_t *data)
 	}
 
 	if (data->partnumber_type == partnum_type_nvidia)
-		strncpy(rawdata->partnumber, data->partnumber, sizeof(rawdata->partnumber));
+		memcpy(rawdata->partnumber, data->partnumber, sizeof(rawdata->partnumber));
 	else {
 		rawdata->partnumber[0] = (char) 0xcc;
-		strncpy(&rawdata->partnumber[1], data->partnumber, sizeof(rawdata->partnumber)-1);
+		memcpy(&rawdata->partnumber[1], data->partnumber, sizeof(rawdata->partnumber)-1);
 	}
-	strncpy(rawdata->asset_id, data->asset_id, sizeof(rawdata->asset_id));
+	memcpy(rawdata->asset_id, data->asset_id, sizeof(rawdata->asset_id));
 	if (ctx->mtype == module_type_cvm) {
 		extract_macaddr(rawdata->factory_default_wifi_mac, data->factory_default_wifi_mac);
 		extract_macaddr(rawdata->factory_default_bt_mac, data->factory_default_bt_mac);
