@@ -1,8 +1,10 @@
 # tegra-eeprom-tool
 
 Library and tools for working with identification EEPROMs on NVIDIA
-Jetson/Tegra hardware, as documented in
-[Jetson TX1-TX2 Module EEPROM Layout](https://developer.nvidia.com/embedded/dlc/tx1-tx2-module-eeprom-layout).
+Jetson/Tegra hardware, as originally documented in
+[Jetson TX1-TX2 Module EEPROM Layout](https://developer.nvidia.com/embedded/dlc/tx1-tx2-module-eeprom-layout),
+and updated in the [Jetson EEPROM Layout](https://docs.nvidia.com/jetson/archives/r35.1/DeveloperGuide/text/HR/JetsonEepromLayout.html)
+section of the Jetson Linux (formerly Linux for Tegra) BSP documentation.
 Works with EEPROMs directly accessible through an EEPROM driver (for read/write access), or via
 userspace I2C transactions (for reads only).
 
