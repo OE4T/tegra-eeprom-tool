@@ -82,6 +82,7 @@ main (int argc, char * const argv[])
 	if (len < 0) {
 		perror("tegra_boardspec");
 		ret = 1;
+		goto depart;
 	}
 	specbuf[len] = '\0';
 	printf("%s\n", specbuf);
