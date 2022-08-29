@@ -44,20 +44,36 @@ static struct {
 	enum {
 		char_string,
 		mac_address,
+		int_decimal,
+		int_hex,
 	} fieldtype;
-	int cvm_only;
+	enum {
+		any_module_type,
+		cvm_only,
+		cvb_only,
+	} moduletype;
+	uint8_t min_layout_version;
 } eeprom_fields[] = {
-	{ "partnumber", offsetof(module_eeprom_t, partnumber), 22, char_string },
-	{ "factory-default-wifi-mac", offsetof(module_eeprom_t, factory_default_wifi_mac), 6, mac_address, 1 },
-	{ "factory-default-bt-mac", offsetof(module_eeprom_t, factory_default_bt_mac), 6, mac_address, 1 },
-	{ "factory-default-wifi-alt-mac", offsetof(module_eeprom_t, factory_default_wifi_alt_mac), 6, mac_address, 1 },
-	{ "factory-default-ether-mac", offsetof(module_eeprom_t, factory_default_ether_mac), 6, mac_address, 1 },
-	{ "asset-id", offsetof(module_eeprom_t, asset_id), 15, char_string },
-	{ "vendor-wifi-mac", offsetof(module_eeprom_t, vendor_wifi_mac), 6, mac_address, 1 },
-	{ "vendor-bt-mac", offsetof(module_eeprom_t, vendor_bt_mac), 6, mac_address, 1 },
-	{ "vendor-ether-mac", offsetof(module_eeprom_t, vendor_ether_mac), 6, mac_address, 1 },
+	{ "major-version", offsetof(module_eeprom_t, major_version), sizeof(uint8_t), int_decimal, any_module_type, 1 },
+	{ "minor-version", offsetof(module_eeprom_t, minor_version), sizeof(uint8_t), int_decimal, any_module_type, 1 },
+	{ "partnumber", offsetof(module_eeprom_t, partnumber), 22, char_string, any_module_type, 1 },
+	{ "factory-default-wifi-mac", offsetof(module_eeprom_t, factory_default_wifi_mac), 6, mac_address, cvm_only, 1 },
+	{ "factory-default-bt-mac", offsetof(module_eeprom_t, factory_default_bt_mac), 6, mac_address, cvm_only, 1 },
+	{ "factory-default-wifi-alt-mac", offsetof(module_eeprom_t, factory_default_wifi_alt_mac), 6, mac_address, cvm_only, 1 },
+	{ "factory-default-ether-mac", offsetof(module_eeprom_t, factory_default_ether_mac), 6, mac_address, cvm_only, 1 },
+	{ "factory-default-ether-mac-count", offsetof(module_eeprom_t, factory_default_ether_mac_count),
+	  sizeof(uint8_t), int_decimal, cvm_only, 2 },
+	{ "asset-id", offsetof(module_eeprom_t, asset_id), 15, char_string, any_module_type, 1 },
+	{ "vendor-wifi-mac", offsetof(module_eeprom_t, vendor_wifi_mac), 6, mac_address, cvm_only, 1 },
+	{ "vendor-bt-mac", offsetof(module_eeprom_t, vendor_bt_mac), 6, mac_address, cvm_only, 1 },
+	{ "vendor-ether-mac", offsetof(module_eeprom_t, vendor_ether_mac), 6, mac_address, cvm_only, 1 },
+	{ "vendor-ether-mac-count", offsetof(module_eeprom_t, vendor_ether_mac_count),
+	  sizeof(uint8_t), int_decimal, cvm_only, 2 },
+	{ "system-partnumber", offsetof(module_eeprom_t, system_partnumber), 21, char_string, cvb_only, 2 },
+	{ "system-serialnumber", offsetof(module_eeprom_t, system_serialnumber), 21, char_string, any_module_type, 2 },
 };
 #define EEPROM_FIELD_COUNT (sizeof(eeprom_fields)/sizeof(eeprom_fields[0]))
+#define PARTNUMBER_FIELD 2
 
 static struct {
 	const char *cmd;
@@ -142,6 +158,7 @@ format_field (context_t ctx, int i, char *strbuf, size_t bufsize)
 {
 	uint8_t *data = (uint8_t *) &ctx->data;
 	ssize_t len = -1;
+	unsigned int value;
 
 	switch (eeprom_fields[i].fieldtype) {
 	case char_string:
@@ -153,6 +170,22 @@ format_field (context_t ctx, int i, char *strbuf, size_t bufsize)
 		break;
 	case mac_address:
 		len = format_macaddr(strbuf, bufsize, data + eeprom_fields[i].offset);
+		break;
+	case int_decimal:
+	case int_hex:
+		if (eeprom_fields[i].length == sizeof(uint8_t))
+			value = *(uint8_t *)(data + eeprom_fields[i].offset);
+		else if (eeprom_fields[i].length == sizeof(uint16_t))
+			value = *(uint16_t *)(data + eeprom_fields[i].offset);
+		if (eeprom_fields[i].fieldtype == int_hex)
+			len = snprintf(strbuf, bufsize-1, "0x%*.*x",
+				       (int) eeprom_fields[i].length * 2,
+				       (int) eeprom_fields[i].length * 2,
+				       value);
+		else
+			len = snprintf(strbuf, bufsize-1, "%u", value);
+		if (len >= 0)
+			strbuf[len] = '\0';
 		break;
 	default:
 		fprintf(stderr, "Internal error: unknown field type for %d\n", i);
@@ -232,13 +265,16 @@ do_show (context_t ctx, int argc, char * const argv[])
 		return 1;
 	}
 	for (i = 0; i < EEPROM_FIELD_COUNT; i++) {
-		if (ctx->mtype != module_type_cvm && eeprom_fields[i].cvm_only)
+		if ((ctx->mtype != module_type_cvm && eeprom_fields[i].moduletype == cvm_only) ||
+		    (ctx->mtype != module_type_cvb && eeprom_fields[i].moduletype == cvb_only))
+			continue;
+		if (ctx->data.major_version < eeprom_fields[i].min_layout_version)
 			continue;
 		if (format_field(ctx, i, strbuf, sizeof(strbuf)) < 0)
 			fprintf(stderr, "Error: could not format field '%s'\n", eeprom_fields[i].name);
 		else
 			printf("%s%s: %s\n", eeprom_fields[i].name,
-			       (i == 0 ? (ctx->data.partnumber_type == partnum_type_nvidia ? "[nvidia]" : "[customer]") : ""),
+			       (i == PARTNUMBER_FIELD ? (ctx->data.partnumber_type == partnum_type_nvidia ? "[nvidia]" : "[customer]") : ""),
 			       strbuf);
 	}
 
@@ -270,7 +306,8 @@ do_get (context_t ctx, int argc, char * const argv[])
 		fprintf(stderr, "Error: no valid EEPROM contents\n");
 		return 1;
 	}
-	if (ctx->mtype != module_type_cvm && eeprom_fields[i].cvm_only) {
+	if ((ctx->mtype != module_type_cvm && eeprom_fields[i].moduletype == cvm_only) ||
+	    (ctx->mtype != module_type_cvb && eeprom_fields[i].moduletype == cvb_only)) {
 		fprintf(stderr, "Error: field not supported for this module type\n");
 		return 1;
 	}
@@ -279,7 +316,7 @@ do_get (context_t ctx, int argc, char * const argv[])
 		return 1;
 	}
 	printf("%s%s\n", strbuf,
-	       (i == 0 ? (ctx->data.partnumber_type == partnum_type_nvidia ? " [nvidia]" : " [customer]") : ""));
+	       (i == PARTNUMBER_FIELD ? (ctx->data.partnumber_type == partnum_type_nvidia ? " [nvidia]" : " [customer]") : ""));
 	return 0;
 
 } /* do_get */
@@ -297,6 +334,7 @@ do_set (context_t ctx, int argc, char * const argv[])
 	uint8_t *data = (uint8_t *) &ctx->data;
 	uint8_t addr[6];
 	size_t len;
+	unsigned long value;
 
 	if (argc < 2) {
 		fprintf(stderr, "missing required arguments: <field-name> <value>\n");
@@ -311,15 +349,21 @@ do_set (context_t ctx, int argc, char * const argv[])
 		fprintf(stderr, "Error: EEPROM is read-only\n");
 		return 1;
 	}
-	if (ctx->mtype != module_type_cvm && eeprom_fields[i].cvm_only) {
+	if ((ctx->mtype != module_type_cvm && eeprom_fields[i].moduletype == cvm_only) ||
+	    (ctx->mtype != module_type_cvb && eeprom_fields[i].moduletype == cvb_only)) {
 		fprintf(stderr, "Error: field not supported for this module type\n");
+		return 1;
+	}
+	if (ctx->data.major_version < eeprom_fields[i].min_layout_version) {
+		fprintf(stderr, "Error: field requires EEPROM layout version >= %u\n",
+			eeprom_fields[i].min_layout_version);
 		return 1;
 	}
 	valindex = 1;
 	/*
 	 * partnumber also takes 'nvidia' or 'customer'
 	 */
-	if (i == 0) {
+	if (i == PARTNUMBER_FIELD) {
 		if (argc < 3) {
 			fprintf(stderr, "missing required arguments: <field-name> {nvidia|customer} <value>\n");
 			return 1;
@@ -355,6 +399,23 @@ do_set (context_t ctx, int argc, char * const argv[])
 			return 1;
 		}
 		memcpy(data + eeprom_fields[i].offset, addr, sizeof(addr));
+		break;
+	case int_decimal:
+	case int_hex:
+		value = strtoul(argv[valindex], NULL, (eeprom_fields[i].fieldtype == int_hex ? 16 : 10));
+		if (value == ULONG_MAX) {
+			fprintf(stderr, "Error: could not parse integer value from '%s'\n", argv[valindex]);
+			return 1;
+		}
+		if ((eeprom_fields[i].length == sizeof(uint8_t) && value > 255) ||
+		    (eeprom_fields[i].length == sizeof(uint16_t) && value > 65536)) {
+			fprintf(stderr, "Error: value '%s' out of range\n", argv[valindex]);
+			return 1;
+		}
+		if (eeprom_fields[i].length == sizeof(uint8_t))
+			*(uint8_t *)(data + eeprom_fields[i].offset) = (uint8_t) value;
+		else
+			*(uint16_t *)(data + eeprom_fields[i].offset) = (uint16_t) value;
 		break;
 	default:
 		fprintf(stderr, "Internal error: unrecognized field type for '%s'\n", eeprom_fields[i].name);

@@ -14,8 +14,12 @@
 #include <fcntl.h>
 #include <errno.h>
 #include "eeprom.h"
+#include "cvm.h"
 
-#define LAYOUT_VERSION	1
+#define LAYOUT_VERSION_V1	1U
+#define LAYOUT_VERSION_V2	2U
+#define LAYOUT_VERSION_NON_T234	LAYOUT_VERSION_V1
+#define LAYOUT_VERSION_T234	LAYOUT_VERSION_V2
 static const char cfgblk_sig[4] = "NVCB";
 static const char cfgblk_none[4] = "FFFF";
 #define CFGBLK_LENGTH	28
@@ -23,9 +27,11 @@ static const char macfmt_tag[2] = "M1";
 static const uint8_t macaddr_placeholder[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 #define MACFMT_VERSION  0
 struct module_eeprom_v1_raw {
-	uint16_t version;
+	uint8_t  major_version;
+	uint8_t  minor_version;
 	uint16_t length; // no longer used
-	uint8_t  reserved_1__[16];
+	uint8_t  reserved_1__[15];
+	uint8_t  ether_mac_count_v2;
 	char     partnumber[22];
 	uint8_t  padding[8]; // either 0 or FF
 	uint8_t  factory_default_wifi_mac[6]; // little-endian
@@ -34,6 +40,7 @@ struct module_eeprom_v1_raw {
 	uint8_t  factory_default_ether_mac[6];
 	char     asset_id[15]; // string padded with 0 or FF
 	uint8_t  reserved_2__[61];
+	// Begin vendor block
 	char     cfgblk_sig[4];
 	uint16_t cfgblk_len;
 	char     macfmt_tag[2];
@@ -41,13 +48,19 @@ struct module_eeprom_v1_raw {
 	uint8_t  vendor_wifi_mac[6];
 	uint8_t  vendor_bt_mac[6];
 	uint8_t  vendor_ether_mac[6];
-	uint8_t  reserved_3__[77];
+	uint8_t  vendor_ether_mac_count_v2;
+	uint8_t  reserved_3__[21];
+	// End vendor block, begin system-level information
+	char     system_partnumber_v2[21];
+	char     system_serialnumber_v2[15];
+	uint8_t  reserved_4__[19];
 	uint8_t  crc8;
 } __attribute__((packed));
 
 struct eeprom_context_s {
 	int fd;
 	int readonly;
+	tegra_soctype_t soctype;
 	eeprom_module_type_t mtype;
 	struct module_eeprom_v1_raw eeprom_data;
 };
@@ -100,7 +113,10 @@ eeprom_data_valid (eeprom_context_t ctx)
 	struct module_eeprom_v1_raw *data = &ctx->eeprom_data;
 	if (data->crc8 != calc_crc8((uint8_t *) data, 255))
 		return 0;
-	if (le16toh(data->version) != LAYOUT_VERSION)
+	if (ctx->soctype == TEGRA_SOCTYPE_234) {
+		if (data->major_version != LAYOUT_VERSION_T234)
+			return 0;
+	} else if (data->major_version != LAYOUT_VERSION_NON_T234)
 		return 0;
 	if (ctx->mtype == module_type_cvm) {
 		if (memcmp(data->cfgblk_sig, cfgblk_sig, sizeof(cfgblk_sig)))
@@ -210,12 +226,18 @@ static eeprom_context_t
 open_common (int fd, eeprom_module_type_t mtype, int readonly, eeprom_readfunc_t readfunc)
 {
 	eeprom_context_t ctx;
+	tegra_soctype_t soctype = cvm_soctype();
 
+	if (soctype == TEGRA_SOCTYPE_INVALID) {
+		errno = EINVAL;
+		return NULL;
+	}
 	ctx = calloc(1, sizeof(struct eeprom_context_s));
 	if (ctx == NULL) {
 		close(fd);
 		return ctx;
 	}
+	ctx->soctype = soctype;
 	ctx->mtype = mtype;
 	ctx->fd = fd;
 	ctx->readonly = readonly;
@@ -335,6 +357,14 @@ eeprom_read (eeprom_context_t ctx, module_eeprom_t *data)
 	extract_macaddr(data->vendor_wifi_mac, rawdata->vendor_wifi_mac);
 	extract_macaddr(data->vendor_bt_mac, rawdata->vendor_bt_mac);
 	extract_macaddr(data->vendor_ether_mac, rawdata->vendor_ether_mac);
+	data->major_version = rawdata->major_version;
+	data->minor_version = rawdata->minor_version;
+	if (rawdata->major_version >= LAYOUT_VERSION_V2) {
+		data->factory_default_ether_mac_count = rawdata->ether_mac_count_v2;
+		data->vendor_ether_mac_count = rawdata->vendor_ether_mac_count_v2;
+		extract_string(data->system_partnumber, rawdata->system_partnumber_v2, sizeof(rawdata->system_partnumber_v2));
+		extract_string(data->system_serialnumber, rawdata->system_serialnumber_v2, sizeof(rawdata->system_serialnumber_v2));
+	}
 	return 0;
 
 } /* eeprom_read */
@@ -364,9 +394,18 @@ eeprom_write (eeprom_context_t ctx, module_eeprom_t *data)
 		return -1;
 	}
 
+	if ((ctx->soctype == TEGRA_SOCTYPE_234 && data->major_version != LAYOUT_VERSION_T234) ||
+	    (ctx->soctype != TEGRA_SOCTYPE_234 && data->major_version != LAYOUT_VERSION_NON_T234)) {
+		errno = EINVAL;
+		return -1;
+	};
+
 	if (!eeprom_data_valid(ctx)) {
 		memset(rawdata, 0, sizeof(*rawdata));
-		rawdata->version = htole16(LAYOUT_VERSION);
+		if (ctx->soctype == TEGRA_SOCTYPE_234)
+			rawdata->major_version = LAYOUT_VERSION_T234;
+		else
+			rawdata->major_version = LAYOUT_VERSION_NON_T234;
 		if (ctx->mtype == module_type_cvm) {
 			memcpy(rawdata->cfgblk_sig, cfgblk_sig, sizeof(rawdata->cfgblk_sig));
 			rawdata->cfgblk_len = CFGBLK_LENGTH;
@@ -400,6 +439,17 @@ eeprom_write (eeprom_context_t ctx, module_eeprom_t *data)
 		memcpy(rawdata->vendor_wifi_mac, macaddr_placeholder, 6);
 		memcpy(rawdata->vendor_bt_mac, macaddr_placeholder, 6);
 		memcpy(rawdata->vendor_ether_mac, macaddr_placeholder, 6);
+	}
+	if (data->major_version >= LAYOUT_VERSION_V2) {
+		rawdata->ether_mac_count_v2 = data->factory_default_ether_mac_count;
+		rawdata->vendor_ether_mac_count_v2 = data->vendor_ether_mac_count;
+		// Per the L4T documentation, is field applies only to
+		// carrier boards sold as part of NVIDIA development kits
+		if (ctx->mtype == module_type_cvb)
+			memcpy(rawdata->system_partnumber_v2, data->system_partnumber,
+			       sizeof(rawdata->system_partnumber_v2));
+		memcpy(rawdata->system_serialnumber_v2, data->system_serialnumber,
+		       sizeof(rawdata->system_serialnumber_v2));
 	}
 	rawdata->crc8 = calc_crc8((uint8_t *) rawdata, 255);
 

@@ -14,7 +14,9 @@ extern "C"
 
 typedef enum {
 	module_type_cvm,
-	module_type_normal,
+	module_type_cvb,
+	module_type_other,
+	module_type_normal = module_type_other,
 } eeprom_module_type_t;
 
 typedef enum {
@@ -36,6 +38,13 @@ struct module_eeprom_s {
 	uint8_t  vendor_wifi_mac[6];
 	uint8_t  vendor_bt_mac[6];
 	uint8_t  vendor_ether_mac[6];
+	uint8_t  major_version;
+	uint8_t  minor_version;
+	// Additions for V2/T234 layouts
+	uint8_t  factory_default_ether_mac_count;
+	uint8_t  vendor_ether_mac_count;
+	char     system_partnumber[21];
+	char     system_serialnumber[15];
 };
 typedef struct module_eeprom_s module_eeprom_t;
 
