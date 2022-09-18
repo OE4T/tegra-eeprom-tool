@@ -451,6 +451,7 @@ eeprom_write (eeprom_context_t ctx, module_eeprom_t *data)
 		memcpy(rawdata->system_serialnumber_v2, data->system_serialnumber,
 		       sizeof(rawdata->system_serialnumber_v2));
 	}
+	rawdata->length = sizeof(*rawdata) - 1;
 	rawdata->crc8 = calc_crc8((uint8_t *) rawdata, 255);
 
 	if (lseek(ctx->fd, 0, SEEK_SET) < 0)
