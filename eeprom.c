@@ -29,7 +29,7 @@ static const uint8_t macaddr_placeholder[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0x
 struct module_eeprom_v1_raw {
 	uint8_t  major_version;
 	uint8_t  minor_version;
-	uint16_t length; // no longer used
+	uint16_t length;
 	uint8_t  reserved_1__[15];
 	uint8_t  ether_mac_count_v2;
 	char     partnumber[22];
@@ -451,6 +451,7 @@ eeprom_write (eeprom_context_t ctx, module_eeprom_t *data)
 		memcpy(rawdata->system_serialnumber_v2, data->system_serialnumber,
 		       sizeof(rawdata->system_serialnumber_v2));
 	}
+	rawdata->length = htole16(sizeof(*rawdata) - 1);
 	rawdata->crc8 = calc_crc8((uint8_t *) rawdata, 255);
 
 	if (lseek(ctx->fd, 0, SEEK_SET) < 0)
