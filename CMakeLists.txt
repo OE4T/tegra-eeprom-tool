@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.8)
 cmake_policy(SET CMP0048 NEW)
 
-project(tegra_eeprom_tool LANGUAGES C VERSION 2.0.0)
+project(tegra_eeprom_tool LANGUAGES C VERSION 2.0.1)
 
 include(GNUInstallDirs)
 
