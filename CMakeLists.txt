@@ -10,6 +10,8 @@ include(GNUInstallDirs)
 
 set(CMAKE_C_STANDARD 11)
 
+option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBEDIT REQUIRED IMPORTED_TARGET libedit)
 
@@ -17,7 +19,7 @@ configure_file(tegra-eeprom.pc.in tegra-eeprom.pc @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tegra-eeprom.pc DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
 
 set(EEPROM_HEADERS boardspec.h cvm.h eeprom.h)
-add_library(tegra-eeprom SHARED eeprom.c cvm.c boardspec.c ${EEPROM_HEADERS})
+add_library(tegra-eeprom eeprom.c cvm.c boardspec.c ${EEPROM_HEADERS})
 set_target_properties(tegra-eeprom PROPERTIES
   VERSION ${PROJECT_VERSION}
   SOVERSION 1)
