@@ -287,11 +287,16 @@ eeprom_context_t
 eeprom_open (const char *pathname, eeprom_module_type_t mtype)
 {
 	int fd;
+	int readonly = 0;
 
 	fd = open(pathname, O_RDWR);
+	if (fd < 0) {
+		fd = open(pathname, O_RDONLY);
+		readonly = 1;
+	}
 	if (fd < 0)
 		return NULL;
-	return open_common(fd, mtype, 0, normal_read);
+	return open_common(fd, mtype, readonly, normal_read);
 
 } /* eeprom_open */
 
