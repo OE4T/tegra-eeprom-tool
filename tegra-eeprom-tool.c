@@ -54,7 +54,7 @@ static struct {
 	} moduletype;
 	uint8_t min_layout_version;
 } eeprom_fields[] = {
-	{ "major-version", offsetof(module_eeprom_t, major_version), sizeof(uint8_t), int_decimal, any_module_type, 1 },
+	{ "major-version", offsetof(module_eeprom_t, major_version), sizeof(uint8_t), int_decimal, any_module_type, 0 },
 	{ "minor-version", offsetof(module_eeprom_t, minor_version), sizeof(uint8_t), int_decimal, any_module_type, 1 },
 	{ "partnumber", offsetof(module_eeprom_t, partnumber), 22, char_string, any_module_type, 1 },
 	{ "factory-default-wifi-mac", offsetof(module_eeprom_t, factory_default_wifi_mac), 6, mac_address, cvm_only, 1 },
