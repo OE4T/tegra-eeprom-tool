@@ -2,6 +2,7 @@
 #define boardspec_h__
 
 // Copyright (c) 2020 Matthew Madison
+// Copyright (c) 2025, OpenEmbedded for Tegra Project
 //
 // SPDX-License-Identifier: MIT
 

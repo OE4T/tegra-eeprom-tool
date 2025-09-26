@@ -4,5 +4,5 @@ Upstream-Contact: OpenEmbedded for Tegra Project <oe4t-questions@madison.systems
 Source: https://github.com/OE4T/tegra-eeprom-tool
 
 Files: tegra-eeprom.pc.in README.md .gitignore
-Copyright: 2022 OpenEmbedded for Tegra Project <oe4t-questions@madison.systems>
+Copyright: 2022-2025, OpenEmbedded for Tegra Project <oe4t-questions@madison.systems>
 License: MIT
