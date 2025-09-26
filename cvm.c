@@ -14,6 +14,7 @@ static const struct cvm_i2c_address_s cvm_addr[TEGRA_SOCTYPE_COUNT] = {
 	[TEGRA_SOCTYPE_194] = { 0, 0x50 },
 	[TEGRA_SOCTYPE_210] = { 2, 0x50 },
 	[TEGRA_SOCTYPE_234] = { 0, 0x50 },
+	[TEGRA_SOCTYPE_264] = { 1, 0x50 },
 };
 
 static const struct {
@@ -24,6 +25,7 @@ static const struct {
 	{ TEGRA_SOCTYPE_194, "nvidia,tegra194" },
 	{ TEGRA_SOCTYPE_210, "nvidia,tegra210" },
 	{ TEGRA_SOCTYPE_234, "nvidia,tegra234" },
+	{ TEGRA_SOCTYPE_264, "nvidia,tegra264" },
 };
 
 /*
@@ -94,6 +96,8 @@ cvm_soctype (void)
 		return TEGRA_SOCTYPE_194;
 	case 0x21:
 		return TEGRA_SOCTYPE_210;
+	case 0x26:
+		return TEGRA_SOCTYPE_264;
 	default:
 		break;
 	}
@@ -116,6 +120,8 @@ cvm_soctype_name (tegra_soctype_t soctype)
 		return "Tegra210";
 	case TEGRA_SOCTYPE_234:
 		return "Tegra234";
+	case TEGRA_SOCTYPE_264:
+		return "Tegra264";
 	default:
 		break;
 	}

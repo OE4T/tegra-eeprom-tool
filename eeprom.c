@@ -20,6 +20,7 @@
 #define LAYOUT_VERSION_V2	2U
 #define LAYOUT_VERSION_NON_T234	LAYOUT_VERSION_V1
 #define LAYOUT_VERSION_T234	LAYOUT_VERSION_V2
+#define LAYOUT_VERSION_T264	LAYOUT_VERSION_V2
 static const char cfgblk_sig[4] = "NVCB";
 static const char cfgblk_none[4] = "FFFF";
 #define CFGBLK_LENGTH	28
@@ -115,6 +116,9 @@ eeprom_data_valid (eeprom_context_t ctx)
 		return 0;
 	if (ctx->soctype == TEGRA_SOCTYPE_234) {
 		if (data->major_version != LAYOUT_VERSION_T234)
+			return 0;
+	} else if (ctx->soctype == TEGRA_SOCTYPE_264) {
+		if (data->major_version != LAYOUT_VERSION_T264)
 			return 0;
 	} else if (data->major_version != LAYOUT_VERSION_NON_T234)
 		return 0;
@@ -400,7 +404,8 @@ eeprom_write (eeprom_context_t ctx, module_eeprom_t *data)
 	}
 
 	if ((ctx->soctype == TEGRA_SOCTYPE_234 && data->major_version != LAYOUT_VERSION_T234) ||
-	    (ctx->soctype != TEGRA_SOCTYPE_234 && data->major_version != LAYOUT_VERSION_NON_T234)) {
+	    (ctx->soctype == TEGRA_SOCTYPE_264 && data->major_version != LAYOUT_VERSION_T264) ||
+	    (ctx->soctype != TEGRA_SOCTYPE_234 && ctx->soctype != TEGRA_SOCTYPE_264 && data->major_version != LAYOUT_VERSION_NON_T234)) {
 		errno = EINVAL;
 		return -1;
 	};
@@ -409,6 +414,14 @@ eeprom_write (eeprom_context_t ctx, module_eeprom_t *data)
 		memset(rawdata, 0, sizeof(*rawdata));
 		if (ctx->soctype == TEGRA_SOCTYPE_234)
 			rawdata->major_version = LAYOUT_VERSION_T234;
+		else if (ctx->soctype == TEGRA_SOCTYPE_264)
+			rawdata->major_version = LAYOUT_VERSION_T264;
+		else
+			rawdata->major_version = LAYOUT_VERSION_NON_T234;
+		if (ctx->soctype == TEGRA_SOCTYPE_234)
+			rawdata->major_version = LAYOUT_VERSION_T234;
+		else if (ctx->soctype == TEGRA_SOCTYPE_264)
+			rawdata->major_version = LAYOUT_VERSION_T264;
 		else
 			rawdata->major_version = LAYOUT_VERSION_NON_T234;
 		if (ctx->mtype == module_type_cvm) {
